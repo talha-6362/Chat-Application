@@ -1,0 +1,33 @@
+# Default to CRLF for all text files (Windows style)
+* text eol=crlf
+
+# Code files - force CRLF
+*.js   text eol=crlf
+*.jsx  text eol=crlf
+*.ts   text eol=crlf
+*.tsx  text eol=crlf
+*.json text eol=crlf
+*.css  text eol=crlf
+*.scss text eol=crlf
+*.html text eol=crlf
+*.md   text eol=crlf
+*.env  text eol=crlf
+
+# Keep shell scripts as LF (important for Linux deploy servers)
+*.sh   text eol=lf
+
+# Do not modify binaries
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.svg  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+
+# Ignore build outputs
+dist/**    binary
+build/**   binary
