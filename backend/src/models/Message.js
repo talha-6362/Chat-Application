@@ -31,7 +31,8 @@ const messageSchema = new mongoose.Schema(
     text: {
       type: String,
       trim: true,
-      maxlength: 4000,
+      maxlength: 3000,
+
     },
 
     type: {
