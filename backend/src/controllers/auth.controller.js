@@ -132,32 +132,30 @@ export const logout = (_, res) => {
 };
 
 
-// ✅ UPDATE PROFILE CONTROLLER
+// UPDATE PROFILE CONTROLLER
 export const updateProfile = async (req, res) => {
   try {
-    const { fullName, profilePic } = req.body;
+    const { profilePic } = req.body;
+    if (!profilePic) return res.status(400).json({ message: "No profile picture provided" });
 
-    // 1️⃣ Find the user by ID (from token)
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const userId = req.user._id;
+    const uploadResponce= await cloudinary.uploader.upload(profilePic);
+    const updateUser = await User.findByIdAndUpdate(
+      userId,
+      { profilePic: uploadResponce.secure_url },
+      { new: true }
+    );
 
-    // 2️⃣ Update fields if provided
-    if (fullName) user.fullName = fullName;
-    if (profilePic) user.profilePic = profilePic;
-
-    // 3️⃣ Save updated user
-    await user.save();
-
-    // 4️⃣ Send response
-    return res.status(200).json({
-      _id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      profilePic: user.profilePic,
+    res.status(200).json({
+      updateUser,
+      _id: updateUser._id,
+      fullName: updateUser.fullName,
+      email: updateUser.email,
+      profilePic: updateUser.profilePic,
       message: "Profile updated successfully",
     });
+
+   
 
   } catch (error) {
     console.error("Error in updateProfile controller:", error);
