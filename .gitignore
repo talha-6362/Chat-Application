@@ -1,3 +1,30 @@
+# Dependencies
 node_modules
+
+# Environment files
 .env
+.env.local
+.env.development
+.env.production
+
+# Build and dist output
+dist
+build
+.next
+out
+
+# Editor and system files
 .vscode
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temp / cache
+.tmp
+.cache
+coverage
