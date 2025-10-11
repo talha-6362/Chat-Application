@@ -6,8 +6,7 @@ const messageSchema = new mongoose.Schema(
     uuid: {
       type: String,
       default: uuidv4,
-      unique: true,
-      index: true,
+      unique: true, 
     },
 
     senderId: {
@@ -32,7 +31,6 @@ const messageSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 3000,
-
     },
 
     type: {
@@ -86,13 +84,12 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexing
+
 messageSchema.index({ chatId: 1, createdAt: -1 });
 messageSchema.index({ senderId: 1, receiverId: 1 });
-messageSchema.index({ uuid: 1 });
 messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// Hooks
+
 messageSchema.pre("save", function (next) {
   if (this.expiresAt && new Date() > this.expiresAt) {
     this.isDeleted = true;
