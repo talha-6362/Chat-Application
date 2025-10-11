@@ -40,10 +40,10 @@ io.on("connection", (socket) => {
   const userId = user._id.toString();
   userSocketMap.set(userId, socket.id);
 
-  console.log(`User connected: ${user.fullName}`);
+  console.log(` User connected: ${user.fullName}`);
   io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
 
-  // Send message
+  //  Send message
   socket.on("sendMessage", async (data) => {
     try {
       const { receiverId, text, attachments } = data;
@@ -63,10 +63,13 @@ io.on("connection", (socket) => {
       // Deliver instantly if receiver online
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("newMessage", newMsg);
+
         await Message.findByIdAndUpdate(newMsg._id, {
           status: "delivered",
           deliveredAt: new Date(),
         });
+
+        //  Consistent format for message status update
         io.to(socket.id).emit("messageStatusUpdated", {
           messageId: newMsg._id,
           status: "delivered",
@@ -75,11 +78,11 @@ io.on("connection", (socket) => {
 
       io.to(socket.id).emit("messageSent", newMsg);
     } catch (error) {
-      console.error("Error in sendMessage:", error.message);
+      console.error(" Error in sendMessage:", error.message);
     }
   });
 
-  // Confirm delivery
+  //  Confirm delivery (consistent payload format)
   socket.on("messageDelivered", async ({ messageId }) => {
     try {
       const updated = await Message.findByIdAndUpdate(
@@ -87,30 +90,36 @@ io.on("connection", (socket) => {
         { status: "delivered", deliveredAt: new Date() },
         { new: true }
       );
+
       if (updated) {
         const senderSocket = getReceiverSocketId(updated.senderId.toString());
-        if (senderSocket)
-          io.to(senderSocket).emit("messageStatusUpdated", updated);
+        if (senderSocket) {
+          io.to(senderSocket).emit("messageStatusUpdated", {
+            messageId: updated._id,
+            status: updated.status,
+          });
+        }
       }
     } catch (error) {
-      console.error("Delivery update failed:", error.message);
+      console.error(" Delivery update failed:", error.message);
     }
   });
 
-  // Mark messages as read
+  //  Mark messages as read
   socket.on("markAsRead", async ({ chatId, messageIds }) => {
     try {
       await Message.updateMany(
         { _id: { $in: messageIds } },
         { status: "seen", isRead: true, seenAt: new Date() }
       );
+
       io.emit("messagesRead", { chatId, readerId: userId });
     } catch (error) {
-      console.error("markAsRead failed:", error.message);
+      console.error(" markAsRead failed:", error.message);
     }
   });
 
-  // Edit message
+  //  Edit message
   socket.on("editMessage", async ({ messageId, newText, receiverId }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -121,15 +130,14 @@ io.on("connection", (socket) => {
       await msg.save();
 
       const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId)
-        io.to(receiverSocketId).emit("messageEdited", msg);
+      if (receiverSocketId) io.to(receiverSocketId).emit("messageEdited", msg);
       io.to(socket.id).emit("messageEdited", msg);
     } catch (error) {
-      console.error("editMessage failed:", error.message);
+      console.error(" editMessage failed:", error.message);
     }
   });
 
-  // Delete message
+  //  Delete message
   socket.on("deleteMessage", async ({ messageId, receiverId, forAll }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -151,11 +159,11 @@ io.on("connection", (socket) => {
 
       io.to(socket.id).emit("messageDeleted", { messageId, forAll });
     } catch (error) {
-      console.error("deleteMessage failed:", error.message);
+      console.error(" deleteMessage failed:", error.message);
     }
   });
 
-  // Message reactions
+  //  Message reactions
   socket.on("messageReaction", async ({ messageId, emoji, receiverId }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -178,13 +186,14 @@ io.on("connection", (socket) => {
       const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId)
         io.to(receiverSocketId).emit("messageReactionUpdated", msg);
+
       io.to(socket.id).emit("messageReactionUpdated", msg);
     } catch (error) {
-      console.error("Reaction update failed:", error.message);
+      console.error(" Reaction update failed:", error.message);
     }
   });
 
-  // Typing indicator
+  //  Typing indicator
   socket.on("typing", ({ receiverId, isTyping }) => {
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId)
@@ -194,9 +203,9 @@ io.on("connection", (socket) => {
       });
   });
 
-  // Handle disconnect
+  //  Handle disconnect
   socket.on("disconnect", () => {
-    console.log(`User disconnected: ${user.fullName}`);
+    console.log(` User disconnected: ${user.fullName}`);
     userSocketMap.delete(userId);
     io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
   });
