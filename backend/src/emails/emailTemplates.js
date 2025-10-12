@@ -1,4 +1,4 @@
-// 📁 backend/utils/emailTemplates.js
+
 
 export function createWelcomeEmailTemplate(name, clientURL) {
   return `

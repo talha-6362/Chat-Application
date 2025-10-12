@@ -8,7 +8,7 @@ import Message from "../models/Message.js";
 const app = express();
 const server = http.createServer(app);
 
-// ✅ Initialize Socket.io with full CORS support
+// Initialize socket.io server with CORS
 const io = new Server(server, {
   cors: {
     origin: [ENV.CLIENT_URL],
@@ -16,22 +16,24 @@ const io = new Server(server, {
   },
 });
 
-// ✅ Store online users (userId: socketId)
+// Track online users
 const userSocketMap = new Map();
 
-// 🔹 Helper: get receiver’s socketId
+// Helper: Get receiver socket ID
 function getReceiverSocketId(userId) {
   return userSocketMap.get(userId);
 }
 
-// 🧩 Apply authentication middleware (JWT or session)
+// Authenticate socket connections
 io.use(socketAuthMiddleware);
 
-// 🧠 Main connection handler
+// Main connection handler
 io.on("connection", (socket) => {
   const user = socket.user;
+
   if (!user || !user._id) {
-    console.warn(" Invalid socket user connection attempt");
+    console.warn("Invalid socket connection attempt");
+    socket.disconnect(true);
     return;
   }
 
@@ -41,17 +43,12 @@ io.on("connection", (socket) => {
   console.log(` User connected: ${user.fullName}`);
   io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
 
-  /* ======================================================
-   📬 ADVANCED REAL-TIME CHAT EVENTS (WhatsApp-Level)
-  ====================================================== */
-
-  // 1️⃣ Send new message
+  //  Send message
   socket.on("sendMessage", async (data) => {
     try {
       const { receiverId, text, attachments } = data;
       if (!receiverId || (!text && !attachments)) return;
 
-      // Save message to DB
       const newMsg = await Message.create({
         senderId: userId,
         receiverId,
@@ -63,23 +60,29 @@ io.on("connection", (socket) => {
 
       const receiverSocketId = getReceiverSocketId(receiverId);
 
-      // Notify receiver if online
+      // Deliver instantly if receiver online
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("newMessage", newMsg);
+
         await Message.findByIdAndUpdate(newMsg._id, {
           status: "delivered",
           deliveredAt: new Date(),
         });
+
+        //  Consistent format for message status update
+        io.to(socket.id).emit("messageStatusUpdated", {
+          messageId: newMsg._id,
+          status: "delivered",
+        });
       }
 
-      // Confirm to sender
       io.to(socket.id).emit("messageSent", newMsg);
     } catch (error) {
       console.error(" Error in sendMessage:", error.message);
     }
   });
 
-  // 2️⃣ Acknowledge delivery (receiver confirms)
+  //  Confirm delivery (consistent payload format)
   socket.on("messageDelivered", async ({ messageId }) => {
     try {
       const updated = await Message.findByIdAndUpdate(
@@ -87,30 +90,36 @@ io.on("connection", (socket) => {
         { status: "delivered", deliveredAt: new Date() },
         { new: true }
       );
-      if (updated)
-        io.to(getReceiverSocketId(updated.senderId.toString())).emit(
-          "messageStatusUpdated",
-          updated
-        );
+
+      if (updated) {
+        const senderSocket = getReceiverSocketId(updated.senderId.toString());
+        if (senderSocket) {
+          io.to(senderSocket).emit("messageStatusUpdated", {
+            messageId: updated._id,
+            status: updated.status,
+          });
+        }
+      }
     } catch (error) {
       console.error(" Delivery update failed:", error.message);
     }
   });
 
-  // 3️⃣ Mark as read (receiver opens chat)
+  //  Mark messages as read
   socket.on("markAsRead", async ({ chatId, messageIds }) => {
     try {
       await Message.updateMany(
         { _id: { $in: messageIds } },
         { status: "seen", isRead: true, seenAt: new Date() }
       );
+
       io.emit("messagesRead", { chatId, readerId: userId });
     } catch (error) {
       console.error(" markAsRead failed:", error.message);
     }
   });
 
-  // 4️⃣ Edit message (sender only)
+  //  Edit message
   socket.on("editMessage", async ({ messageId, newText, receiverId }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -121,16 +130,14 @@ io.on("connection", (socket) => {
       await msg.save();
 
       const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId)
-        io.to(receiverSocketId).emit("messageEdited", msg);
-
+      if (receiverSocketId) io.to(receiverSocketId).emit("messageEdited", msg);
       io.to(socket.id).emit("messageEdited", msg);
     } catch (error) {
       console.error(" editMessage failed:", error.message);
     }
   });
 
-  // 5️⃣ Delete message (for self or everyone)
+  //  Delete message
   socket.on("deleteMessage", async ({ messageId, receiverId, forAll }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -138,14 +145,15 @@ io.on("connection", (socket) => {
 
       if (forAll) {
         msg.isDeleted = true;
-        msg.deletedFor = [];
+        msg.text = "This message was deleted";
+        msg.attachments = [];
       } else {
         msg.deletedFor.push(userId);
       }
 
       await msg.save();
-      const receiverSocketId = getReceiverSocketId(receiverId);
 
+      const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId)
         io.to(receiverSocketId).emit("messageDeleted", { messageId, forAll });
 
@@ -155,7 +163,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // 6️⃣ Add / remove emoji reaction
+  //  Message reactions
   socket.on("messageReaction", async ({ messageId, emoji, receiverId }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -185,14 +193,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  // 7️⃣ Typing indicator
+  //  Typing indicator
   socket.on("typing", ({ receiverId, isTyping }) => {
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId)
-      io.to(receiverSocketId).emit("typingStatus", { senderId: userId, isTyping });
+      io.to(receiverSocketId).emit("typingStatus", {
+        senderId: userId,
+        isTyping,
+      });
   });
 
-  // 8️⃣ Disconnect user
+  //  Handle disconnect
   socket.on("disconnect", () => {
     console.log(` User disconnected: ${user.fullName}`);
     userSocketMap.delete(userId);
@@ -200,4 +211,4 @@ io.on("connection", (socket) => {
   });
 });
 
-export { io, app, server };
+export { io, app, server, getReceiverSocketId };
