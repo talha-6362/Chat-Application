@@ -25,6 +25,7 @@
   "homepage": "https://github.com/talha-6362/Chat-Application#readme",
   "description": "",
   "dependencies": {
+    "framer-motion": "^12.23.24",
     "react-router": "^7.9.4"
   }
 }

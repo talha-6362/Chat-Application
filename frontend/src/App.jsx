@@ -1,18 +1,28 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import ChatPage from "./pages/ChatPage";
 import LoginPage from "./pages/LoginPage";
 import SignUpPage from "./pages/SignUpPage";
 import { useAuthStore } from "./store/useAuthStore";
 import { Toaster } from "react-hot-toast";
+import PageLoader from "./components/PageLoader";
 
 function App() {
-  const { checkAuth, isCheckingAuth, authUser } = useAuthStore();
+  const { checkAuth, isCheckingAuth, authUser, setNavigate } = useAuthStore();
+  const navigate = useNavigate();
+
+  // ✅ Set navigate function in Zustand store
+  useEffect(() => {
+    setNavigate(navigate);
+  }, [navigate, setNavigate]);
+
+  // ✅ Check authentication on mount
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
   if (isCheckingAuth) return <PageLoader />;
+
   return (
     <>
       <div className="min-h-screen bg-slate-900 relative flex items-center justify-center p-4 overflow-hidden">
@@ -22,13 +32,21 @@ function App() {
         <div className="absolute bottom-0 -right-4 size-96 bg-cyan-500 opacity-20 blur-[100px]" />
 
         {/* ROUTES */}
-
         <div className="relative z-10 w-full max-w-4xl">
           <Routes>
-        <Route path="/" element={authUser ? <ChatPage /> : <Navigate to={"/login"} />} />
-        <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
-        <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to={"/"} />} />
-      </Routes>
+            <Route
+              path="/"
+              element={authUser ? <ChatPage /> : <Navigate to={"/login"} />}
+            />
+            <Route
+              path="/login"
+              element={!authUser ? <LoginPage /> : <Navigate to={"/"} />}
+            />
+            <Route
+              path="/signup"
+              element={!authUser ? <SignUpPage /> : <Navigate to={"/"} />}
+            />
+          </Routes>
         </div>
 
         {/* TOASTER */}
