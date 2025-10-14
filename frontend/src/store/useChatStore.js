@@ -32,6 +32,7 @@ export const useChatStore = create((set, get) => ({
       set({ isUsersLoading: false });
     }
   },
+
   getMyChatPartners: async () => {
     set({ isUsersLoading: true });
     try {
@@ -69,9 +70,10 @@ export const useChatStore = create((set, get) => ({
       text: messageData.text,
       image: messageData.image,
       createdAt: new Date().toISOString(),
-      isOptimistic: true, // flag to identify optimistic messages (optional)
+      isOptimistic: true,
     };
-    // immidetaly update the ui by adding the message
+
+    // immediately update the UI by adding the optimistic message
     set({ messages: [...messages, optimisticMessage] });
 
     try {
@@ -103,8 +105,7 @@ export const useChatStore = create((set, get) => ({
 
       if (isSoundEnabled) {
         const notificationSound = new Audio("/sounds/notification.mp3");
-
-        notificationSound.currentTime = 0; // reset to start
+        notificationSound.currentTime = 0;
         notificationSound
           .play()
           .catch((e) => console.log("Audio play failed:", e));
@@ -117,3 +118,4 @@ export const useChatStore = create((set, get) => ({
     socket.off("newMessage");
   },
 }));
+
