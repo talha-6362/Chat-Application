@@ -11,12 +11,10 @@ function App() {
   const { checkAuth, isCheckingAuth, authUser, setNavigate } = useAuthStore();
   const navigate = useNavigate();
 
-  // ✅ Set navigate function in Zustand store
   useEffect(() => {
     setNavigate(navigate);
   }, [navigate, setNavigate]);
 
-  // ✅ Check authentication on mount
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);

@@ -2,7 +2,7 @@ function BorderAnimatedContainer({ children }) {
   return (
     <div
       className="
-        w-full h-full
+        w-full h-[95vh]
         rounded-2xl border border-transparent
         [background:conic-gradient(from_var(--border-angle),theme(colors.cyan.400),theme(colors.pink.500),theme(colors.cyan.400))_border-box]
         bg-slate-900

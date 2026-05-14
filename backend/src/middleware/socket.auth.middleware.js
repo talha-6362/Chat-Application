@@ -2,13 +2,6 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { ENV } from "../lib/env.js";
 
-/**
- * ✅ Advanced Socket Authentication Middleware
- * - Supports cookie and Authorization header
- * - Validates JWT
- * - Attaches verified user to socket
- * - Prevents connection without valid credentials
- */
 export const socketAuthMiddleware = async (socket, next) => {
   try {
     let token;
@@ -55,22 +48,18 @@ export const socketAuthMiddleware = async (socket, next) => {
       return next(new Error("Unauthorized: User not found"));
     }
 
-    // 5️⃣ Optionally check if user is blocked/deactivated
     if (user.status === "blocked") {
       console.warn(`🚫 Blocked user (${user._id}) tried to connect`);
       return next(new Error("Access denied: User blocked"));
     }
 
-    // 6️⃣ Attach user data to socket
     socket.user = user;
     socket.userId = user._id.toString();
     socket.connectedAt = new Date();
 
-    console.log(
-      `✅ Socket Authenticated: ${user.fullName} (${user._id}) at ${socket.connectedAt.toISOString()}`
-    );
 
-    next(); // ✅ Allow socket connection
+
+    next(); 
   } catch (error) {
     console.error("❌ Socket authentication failed:", error.message);
     next(new Error("Unauthorized: Authentication failed"));

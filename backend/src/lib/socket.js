@@ -8,7 +8,6 @@ import Message from "../models/Message.js";
 const app = express();
 const server = http.createServer(app);
 
-// Initialize socket.io server with CORS
 const io = new Server(server, {
   cors: {
     origin: [ENV.CLIENT_URL],
@@ -16,18 +15,14 @@ const io = new Server(server, {
   },
 });
 
-// Track online users
 const userSocketMap = new Map();
 
-// Helper: Get receiver socket ID
 function getReceiverSocketId(userId) {
   return userSocketMap.get(userId);
 }
 
-// Authenticate socket connections
 io.use(socketAuthMiddleware);
 
-// Main connection handler
 io.on("connection", (socket) => {
   const user = socket.user;
 
@@ -40,10 +35,8 @@ io.on("connection", (socket) => {
   const userId = user._id.toString();
   userSocketMap.set(userId, socket.id);
 
-  console.log(` User connected: ${user.fullName}`);
   io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
-
-  //  Send message
+  // Send message
   socket.on("sendMessage", async (data) => {
     try {
       const { receiverId, text, attachments } = data;
@@ -62,27 +55,35 @@ io.on("connection", (socket) => {
 
       // Deliver instantly if receiver online
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit("newMessage", newMsg);
 
-        await Message.findByIdAndUpdate(newMsg._id, {
-          status: "delivered",
-          deliveredAt: new Date(),
-        });
+  io.to(receiverSocketId).emit("newMessage", newMsg);
 
-        //  Consistent format for message status update
-        io.to(socket.id).emit("messageStatusUpdated", {
-          messageId: newMsg._id,
-          status: "delivered",
-        });
-      }
+  const updatedMsg = await Message.findByIdAndUpdate(
+    newMsg._id,
+    {
+      status: "delivered",
+      deliveredAt: new Date(),
+    },
+    { new: true }
+  );
+
+  // 🔥 SEND TO SENDER (CRITICAL FIX)
+  const senderSocketId = socket.id;
+
+
+  io.to(senderSocketId).emit("messageStatusUpdated", {
+    messageId: updatedMsg._id,
+    status: "delivered",
+  });
+} else {
+}
 
       io.to(socket.id).emit("messageSent", newMsg);
     } catch (error) {
-      console.error(" Error in sendMessage:", error.message);
+      console.error("❌ Error in sendMessage:", error.message);
     }
   });
 
-  //  Confirm delivery (consistent payload format)
   socket.on("messageDelivered", async ({ messageId }) => {
     try {
       const updated = await Message.findByIdAndUpdate(
@@ -101,99 +102,124 @@ io.on("connection", (socket) => {
         }
       }
     } catch (error) {
-      console.error(" Delivery update failed:", error.message);
+      console.error("❌ Delivery update failed:", error.message);
     }
   });
 
-  //  Mark messages as read
+  //  Mark messages as read 
   socket.on("markAsRead", async ({ chatId, messageIds }) => {
     try {
-      await Message.updateMany(
+      // Validate input
+      if (!chatId || !messageIds || messageIds.length === 0) {
+        console.warn("Invalid markAsRead payload:", { chatId, messageIds });
+        return;
+      }
+
+
+      // Update messages in database
+      const updatedMessages = await Message.updateMany(
         { _id: { $in: messageIds } },
-        { status: "seen", isRead: true, seenAt: new Date() }
+        { 
+          status: "seen", 
+          isRead: true, 
+          seenAt: new Date(),
+          readAt: new Date()
+        }
       );
 
-      io.emit("messagesRead", { chatId, readerId: userId });
-    } catch (error) {
-      console.error(" markAsRead failed:", error.message);
-    }
-  });
+      if (updatedMessages.modifiedCount > 0) {
+        // 🔥 FIX 2: Send proper payload with messageIds to the SENDER
+        const senderSocket = getReceiverSocketId(chatId);
+        
+        if (senderSocket) {
+          io.to(senderSocket).emit("messagesSeen", {
+            chatId: userId, // Current user's ID (receiver)
+            messageIds: messageIds // Include which messages were seen
+          });
+        }
 
-  //  Edit message
-  socket.on("editMessage", async ({ messageId, newText, receiverId }) => {
-    try {
-      const msg = await Message.findById(messageId);
-      if (!msg || msg.senderId.toString() !== userId) return;
-
-      msg.text = newText;
-      msg.editedAt = new Date();
-      await msg.save();
-
-      const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId) io.to(receiverSocketId).emit("messageEdited", msg);
-      io.to(socket.id).emit("messageEdited", msg);
-    } catch (error) {
-      console.error(" editMessage failed:", error.message);
-    }
-  });
-
-  //  Delete message
-  socket.on("deleteMessage", async ({ messageId, receiverId, forAll }) => {
-    try {
-      const msg = await Message.findById(messageId);
-      if (!msg || msg.senderId.toString() !== userId) return;
-
-      if (forAll) {
-        msg.isDeleted = true;
-        msg.text = "This message was deleted";
-        msg.attachments = [];
-      } else {
-        msg.deletedFor.push(userId);
+        // Also emit to current user for consistency
+        io.to(socket.id).emit("messagesSeen", {
+          chatId: userId,
+          messageIds: messageIds
+        });
       }
-
-      await msg.save();
-
-      const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId)
-        io.to(receiverSocketId).emit("messageDeleted", { messageId, forAll });
-
-      io.to(socket.id).emit("messageDeleted", { messageId, forAll });
     } catch (error) {
-      console.error(" deleteMessage failed:", error.message);
+      console.error("❌ markAsRead failed:", error.message);
     }
   });
 
-  //  Message reactions
+  // Edit message
+ socket.on("editMessage", async ({ messageId, newText }) => {
+  try {
+    const msg = await Message.findById(messageId);
+
+    if (!msg) return;
+
+    // security check
+    if (msg.senderId.toString() !== userId) return;
+
+    msg.text = newText;
+    msg.editedAt = new Date();
+
+    await msg.save();
+
+    const payload = {
+      _id: msg._id,
+      text: msg.text,
+      editedAt: msg.editedAt
+    };
+
+    // auto detect receiver
+    const receiverSocketId = getReceiverSocketId(
+      msg.receiverId.toString()
+    );
+
+    // receiver realtime update
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageEdited", payload);
+    }
+
+    // sender realtime update
+    socket.emit("messageEdited", payload);
+
+  } catch (error) {
+    console.error("❌ editMessage failed:", error.message);
+  }
+});
+  // Message reactions
   socket.on("messageReaction", async ({ messageId, emoji, receiverId }) => {
-    try {
-      const msg = await Message.findById(messageId);
-      if (!msg) return;
+  try {
+    const msg = await Message.findById(messageId);
+    if (!msg) return;
 
-      const existing = msg.reactions.find(
-        (r) => r.userId.toString() === userId && r.emoji === emoji
+    const existing = msg.reactions.find(
+      (r) => r.userId.toString() === userId && r.emoji === emoji
+    );
+
+    if (existing) {
+      msg.reactions = msg.reactions.filter(
+        (r) => !(r.userId.toString() === userId && r.emoji === emoji)
       );
-
-      if (existing) {
-        msg.reactions = msg.reactions.filter(
-          (r) => !(r.userId.toString() === userId && r.emoji === emoji)
-        );
-      } else {
-        msg.reactions.push({ userId, emoji });
-      }
-
-      await msg.save();
-
-      const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId)
-        io.to(receiverSocketId).emit("messageReactionUpdated", msg);
-
-      io.to(socket.id).emit("messageReactionUpdated", msg);
-    } catch (error) {
-      console.error(" Reaction update failed:", error.message);
+    } else {
+      msg.reactions.push({ userId, emoji });
     }
-  });
 
-  //  Typing indicator
+    await msg.save();
+
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageReactionUpdated", msg);
+    }
+
+    io.to(socket.id).emit("messageReactionUpdated", msg);
+
+  } catch (error) {
+    console.error("❌ Reaction update failed:", error.message);
+  }
+});
+
+  // Typing indicator
   socket.on("typing", ({ receiverId, isTyping }) => {
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId)
@@ -203,9 +229,8 @@ io.on("connection", (socket) => {
       });
   });
 
-  //  Handle disconnect
+  // Handle disconnect
   socket.on("disconnect", () => {
-    console.log(` User disconnected: ${user.fullName}`);
     userSocketMap.delete(userId);
     io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
   });

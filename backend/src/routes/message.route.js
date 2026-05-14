@@ -1,4 +1,3 @@
-// ✅ src/routes/message.route.js
 import express from "express";
 import {
   getAllContacts,
@@ -16,18 +15,20 @@ import { arcjetProtection } from "../middleware/arcjet.middleware.js";
 
 const router = express.Router();
 
-// ✅ Protect all routes
 router.use(arcjetProtection, protectRoute);
 
-// ✅ Chat & Messages Routes
 router.get("/contacts", getAllContacts);
 router.get("/chats", getChatPartners);
-router.get("/:id", getMessagesByUserId);
+
 router.post("/send/:id", sendMessage);
 router.put("/edit/:messageId", editMessage);
 router.delete("/delete/:messageId", deleteMessage);
+
 router.post("/reaction/:messageId", addReaction);
 router.delete("/reaction/:messageId/:emoji", removeReaction);
-router.put("/read/:chatId", markAsRead); // keep read route
+
+router.put("/read/:chatId", markAsRead);
+
+router.get("/:id", getMessagesByUserId);
 
 export default router;

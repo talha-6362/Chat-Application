@@ -44,9 +44,7 @@ function SignUpPage() {
                   <p className="text-slate-400">Sign up for a new account</p>
                 </div>
 
-                {/* FORM */}
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* FULL NAME */}
                   <div>
                     <label className="auth-input-label">Full Name</label>
                     <div className="relative">
@@ -64,7 +62,6 @@ function SignUpPage() {
                     </div>
                   </div>
 
-                  {/* EMAIL */}
                   <div>
                     <label className="auth-input-label">Email</label>
                     <div className="relative">
@@ -82,14 +79,11 @@ function SignUpPage() {
                     </div>
                   </div>
 
-                  {/* PASSWORD */}
                   <div>
                     <label className="auth-input-label">Password</label>
                     <div className="relative">
-                      {/* Lock Icon */}
                       <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6 pointer-events-none" />
 
-                      {/* Input Field */}
                       <input
                         type={showPassword ? "text" : "password"}
                         value={formData.password}
@@ -104,7 +98,6 @@ function SignUpPage() {
                         autoComplete="off"
                       />
 
-                      {/* Toggle Icon */}
                       {showPassword ? (
                         <EyeOffIcon
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6 cursor-pointer hover:text-slate-200 transition"
@@ -119,7 +112,6 @@ function SignUpPage() {
                     </div>
                   </div>
 
-                  {/* SUBMIT BUTTON */}
                   <button
                     className="auth-btn flex items-center justify-center"
                     type="submit"
@@ -133,8 +125,6 @@ function SignUpPage() {
                   </button>
                 </form>
 
-                {/* LOGIN LINK */}
-                {/* LOGIN LINK */}
 <div className="mt-6 text-center">
   <Link to="/login" className="auth-link">
     Already have an account?{" "}
@@ -147,7 +137,6 @@ function SignUpPage() {
               </div>
             </div>
 
-            {/* RIGHT SIDE - IMAGE / ILLUSTRATION */}
             <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-slate-800/20 to-transparent">
               <div>
                 <img

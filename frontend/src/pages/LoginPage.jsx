@@ -9,7 +9,7 @@ import {
   EyeIcon,
   EyeOffIcon,
 } from "lucide-react";
-import { Link } from "react-router-dom"; // ✅ Correct import
+import { Link } from "react-router-dom"; 
 
 function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -26,10 +26,8 @@ function LoginPage() {
       <div className="relative w-full max-w-6xl md:h-[800px] h-[650px]">
         <BorderAnimatedContainer>
           <div className="w-full flex flex-col md:flex-row">
-            {/* LEFT SIDE - LOGIN FORM */}
             <div className="md:w-1/2 p-8 flex items-center justify-center md:border-r border-slate-600/30">
               <div className="w-full max-w-md">
-                {/* HEADER */}
                 <div className="text-center mb-8">
                   <MessageCircleIcon className="w-12 h-12 mx-auto text-slate-400 mb-4" />
                   <h2 className="text-2xl font-bold text-slate-200 mb-2">
@@ -40,9 +38,7 @@ function LoginPage() {
                   </p>
                 </div>
 
-                {/* FORM */}
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* EMAIL */}
                   <div>
                     <label className="auth-input-label">Email</label>
                     <div className="relative">
@@ -60,14 +56,11 @@ function LoginPage() {
                     </div>
                   </div>
 
-                  {/* PASSWORD */}
                   <div>
                     <label className="auth-input-label">Password</label>
                     <div className="relative">
-                      {/* Left Lock Icon */}
                       <LockIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6 pointer-events-none" />
 
-                      {/* Input Field */}
                       <input
                         type={showPassword ? "text" : "password"}
                         value={formData.password}
@@ -82,7 +75,6 @@ function LoginPage() {
                         autoComplete="off"
                       />
 
-                      {/* Toggle Visibility Icon */}
                       {showPassword ? (
                         <EyeOffIcon
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6 cursor-pointer hover:text-slate-200 transition"
@@ -97,7 +89,6 @@ function LoginPage() {
                     </div>
                   </div>
 
-                  {/* SUBMIT BUTTON */}
                   <button
                     className="auth-btn flex items-center justify-center"
                     type="submit"
@@ -111,7 +102,6 @@ function LoginPage() {
                   </button>
                 </form>
 
-                {/* SIGNUP LINK */}
                 <div className="mt-6 text-center">
                   <Link to="/signup" className="auth-link">
                     Don't have an account?{" "}
@@ -121,7 +111,6 @@ function LoginPage() {
               </div>
             </div>
 
-            {/* RIGHT SIDE - IMAGE / ILLUSTRATION */}
             <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-slate-800/20 to-transparent">
               <div>
                 <img

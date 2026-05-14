@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
+import { useChatStore } from "./useChatStore"; 
 
 const BASE_URL =
   import.meta.env.MODE === "development"
@@ -9,19 +10,16 @@ const BASE_URL =
     : "/";
 
 export const useAuthStore = create((set, get) => ({
-  // 🔹 STATE
   authUser: null,
   isCheckingAuth: true,
   isSigningUp: false,
   isLoggingIn: false,
   socket: null,
   onlineUsers: [],
-  navigate: null, // ✅ Will be injected from App.jsx
+  navigate: null,
 
-  // 🔹 Set navigate
   setNavigate: (navigate) => set({ navigate }),
 
-  // 🔹 CHECK AUTH (Persistent login)
   checkAuth: async () => {
     try {
       const res = await axiosInstance.get("/auth/check", {
@@ -37,7 +35,7 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // 🔹 SIGNUP (no auto-login)
+  // SIGNUP
   signup: async (data) => {
     set({ isSigningUp: true });
     try {
@@ -47,7 +45,6 @@ export const useAuthStore = create((set, get) => ({
 
       toast.success("Account created successfully! Please log in.");
 
-      // ✅ Redirect to login
       const navigate = get().navigate;
       if (navigate) navigate("/login");
     } catch (error) {
@@ -57,7 +54,7 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // 🔹 LOGIN
+  // LOGIN
   login: async (data) => {
     set({ isLoggingIn: true });
     try {
@@ -74,20 +71,32 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // 🔹 LOGOUT
+  // LOGOUT 
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout", {}, { withCredentials: true });
-      set({ authUser: null });
-      toast.success("Logged out successfully");
+      
+      const { resetChatState, unsubscribeFromMessages } = useChatStore.getState();
+      if (resetChatState) {
+        resetChatState();
+      }
+      if (unsubscribeFromMessages) {
+        unsubscribeFromMessages();
+      }
+      
+      set({ authUser: null, onlineUsers: [] });
       get().disconnectSocket();
+      toast.success("Logged out successfully");
+      
+      const navigate = get().navigate;
+      if (navigate) navigate("/login");
     } catch (error) {
       console.log("Logout error:", error);
       toast.error("Error logging out");
     }
   },
 
-  // 🔹 UPDATE PROFILE
+  // UPDATE PROFILE
   updateProfile: async (data) => {
     try {
       const res = await axiosInstance.put("/auth/update-profile", data, {
@@ -101,22 +110,62 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // 🔹 SOCKET MANAGEMENT
+  // SOCKET MANAGEMENT 
   connectSocket: () => {
-    const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    const { authUser, socket } = get();
+    
+    if (!authUser) return;
+    if (socket?.connected) return;
+    
+    if (socket) {
+      socket.disconnect();
+    }
 
-    const socket = io(BASE_URL, { withCredentials: true });
-    socket.connect();
+    const newSocket = io(BASE_URL, { 
+      withCredentials: true,
+      transports: ['websocket'], 
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+    
+    newSocket.connect();
+    set({ socket: newSocket });
 
-    set({ socket });
+    newSocket.on("connect", () => {
+    });
 
-    socket.on("getOnlineUsers", (userIds) => {
+    newSocket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
+    });
+
+    newSocket.on("disconnect", () => {
+    });
+
+    newSocket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
     });
   },
 
+  // DISCONNECT SOCKET 
   disconnectSocket: () => {
-    if (get().socket?.connected) get().socket.disconnect();
+    const { socket } = get();
+    if (socket) {
+      socket.off("connect");
+      socket.off("getOnlineUsers");
+      socket.off("disconnect");
+      socket.off("connect_error");
+      
+      socket.disconnect();
+      set({ socket: null });
+    }
+  },
+
+
+  reconnectSocket: () => {
+    get().disconnectSocket();
+    setTimeout(() => {
+      get().connectSocket();
+    }, 1000);
   },
 }));
