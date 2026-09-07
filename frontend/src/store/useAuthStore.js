@@ -7,8 +7,7 @@ import { useChatStore } from "./useChatStore";
 const BASE_URL =
   import.meta.env.MODE === "development"
     ? "http://localhost:3000"
-    : import.meta.env.VITE_API_URL ||
-      "https://chat-application-7ttg.vercel.app";
+    : import.meta.env.VITE_API_URL || "https://chat-application-7ttg.vercel.app";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -23,13 +22,12 @@ export const useAuthStore = create((set, get) => ({
 
   checkAuth: async () => {
     try {
-      const res = await axiosInstance.get("/auth/check", {
-        withCredentials: true,
-      });
+      const res = await axiosInstance.get("/auth/check");
       set({ authUser: res.data });
       get().connectSocket();
     } catch (error) {
       console.log("Error in authCheck:", error);
+      localStorage.removeItem("jwt_token");
       set({ authUser: null });
     } finally {
       set({ isCheckingAuth: false });
@@ -40,14 +38,18 @@ export const useAuthStore = create((set, get) => ({
   signup: async (data) => {
     set({ isSigningUp: true });
     try {
-      await axiosInstance.post("/auth/signup", data, {
-        withCredentials: true,
-      });
-
-      toast.success("Account created successfully! Please log in.");
-
+      const res = await axiosInstance.post("/auth/signup", data);
+      
+      if (res.data?.token) {
+        localStorage.setItem("jwt_token", res.data.token);
+      }
+      
+      set({ authUser: res.data });
+      toast.success("Account created successfully!");
+      get().connectSocket();
+      
       const navigate = get().navigate;
-      if (navigate) navigate("/login");
+      if (navigate) navigate("/");
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {
@@ -59,12 +61,18 @@ export const useAuthStore = create((set, get) => ({
   login: async (data) => {
     set({ isLoggingIn: true });
     try {
-      const res = await axiosInstance.post("/auth/login", data, {
-        withCredentials: true,
-      });
+      const res = await axiosInstance.post("/auth/login", data);
+      
+      if (res.data?.token) {
+        localStorage.setItem("jwt_token", res.data.token);
+      }
+      
       set({ authUser: res.data });
       toast.success("Logged in successfully");
       get().connectSocket();
+      
+      const navigate = get().navigate;
+      if (navigate) navigate("/");
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
     } finally {
@@ -75,21 +83,17 @@ export const useAuthStore = create((set, get) => ({
   // LOGOUT
   logout: async () => {
     try {
-      await axiosInstance.post("/auth/logout", {}, { withCredentials: true });
-
-      const { resetChatState, unsubscribeFromMessages } =
-        useChatStore.getState();
-      if (resetChatState) {
-        resetChatState();
-      }
-      if (unsubscribeFromMessages) {
-        unsubscribeFromMessages();
-      }
-
+      await axiosInstance.post("/auth/logout");
+      localStorage.removeItem("jwt_token");
+      
+      const { resetChatState, unsubscribeFromMessages } = useChatStore.getState();
+      if (resetChatState) resetChatState();
+      if (unsubscribeFromMessages) unsubscribeFromMessages();
+      
       set({ authUser: null, onlineUsers: [] });
       get().disconnectSocket();
       toast.success("Logged out successfully");
-
+      
       const navigate = get().navigate;
       if (navigate) navigate("/login");
     } catch (error) {
@@ -101,9 +105,7 @@ export const useAuthStore = create((set, get) => ({
   // UPDATE PROFILE
   updateProfile: async (data) => {
     try {
-      const res = await axiosInstance.put("/auth/update-profile", data, {
-        withCredentials: true,
-      });
+      const res = await axiosInstance.put("/auth/update-profile", data);
       set({ authUser: res.data });
       toast.success("Profile updated successfully");
     } catch (error) {
