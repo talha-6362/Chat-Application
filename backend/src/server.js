@@ -12,37 +12,48 @@ import { app, server } from "./lib/socket.js";
 
 const PORT = ENV.PORT || 3000;
 
-// DB Connection
-connectDB();
-
+// Allowed Origins List
 const allowedOrigins = [
   ENV.CLIENT_URL,
   "https://chat-application-r5jz-gray.vercel.app",
-  "http://localhost:5173"
+  "http://localhost:5173",
 ].filter(Boolean);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, true); 
-    }
-  },
-  credentials: true,
-}));
+// CORS Config
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 app.use(express.json({ limit: "5mb" }));
 app.use(cookieParser());
+
+// Connect Database on incoming requests for Vercel Serverless
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
+// Health-Check Route
 app.get("/", (req, res) => {
   res.send("Backend API is running successfully!");
 });
 
+// Local Development Support
 if (process.env.NODE_ENV !== "production") {
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

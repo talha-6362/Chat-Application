@@ -7,7 +7,8 @@ import { useChatStore } from "./useChatStore";
 const BASE_URL =
   import.meta.env.MODE === "development"
     ? "http://localhost:3000"
-    : import.meta.env.VITE_API_URL || "https://chat-application-7ttg.vercel.app";
+    : import.meta.env.VITE_API_URL ||
+      "https://chat-application-7ttg.vercel.app";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -71,23 +72,24 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // LOGOUT 
+  // LOGOUT
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout", {}, { withCredentials: true });
-      
-      const { resetChatState, unsubscribeFromMessages } = useChatStore.getState();
+
+      const { resetChatState, unsubscribeFromMessages } =
+        useChatStore.getState();
       if (resetChatState) {
         resetChatState();
       }
       if (unsubscribeFromMessages) {
         unsubscribeFromMessages();
       }
-      
+
       set({ authUser: null, onlineUsers: [] });
       get().disconnectSocket();
       toast.success("Logged out successfully");
-      
+
       const navigate = get().navigate;
       if (navigate) navigate("/login");
     } catch (error) {
@@ -110,52 +112,45 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  // SOCKET MANAGEMENT 
+  // SOCKET MANAGEMENT
   connectSocket: () => {
     const { authUser, socket } = get();
-    
-    if (!authUser) return;
-    if (socket?.connected) return;
-    
+
+    if (!authUser || socket?.connected) return;
+
     if (socket) {
       socket.disconnect();
     }
 
-    const newSocket = io(BASE_URL, { 
-      withCredentials: true,
-      transports: ["polling", "websocket"], 
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
-    
-    newSocket.connect();
-    set({ socket: newSocket });
+    const isProd = import.meta.env.MODE !== "development";
 
-    newSocket.on("connect", () => {
+    const newSocket = io(BASE_URL, {
+      withCredentials: true,
+      transports: isProd ? ["polling"] : ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+      autoConnect: true,
     });
+
+    set({ socket: newSocket });
 
     newSocket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
     });
 
-    newSocket.on("disconnect", () => {
-    });
-
     newSocket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
+      console.warn("Socket notification warning:", error.message);
     });
   },
 
-  // DISCONNECT SOCKET 
+  // DISCONNECT SOCKET
   disconnectSocket: () => {
     const { socket } = get();
     if (socket) {
-      socket.off("connect");
       socket.off("getOnlineUsers");
-      socket.off("disconnect");
       socket.off("connect_error");
-      
+
       socket.disconnect();
       set({ socket: null });
     }
