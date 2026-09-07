@@ -2,12 +2,12 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
-import { useChatStore } from "./useChatStore"; 
+import { useChatStore } from "./useChatStore";
 
 const BASE_URL =
   import.meta.env.MODE === "development"
     ? "http://localhost:3000"
-    : "/";
+    : import.meta.env.VITE_API_URL || "https://chat-application-7ttg.vercel.app";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -123,7 +123,7 @@ export const useAuthStore = create((set, get) => ({
 
     const newSocket = io(BASE_URL, { 
       withCredentials: true,
-      transports: ['websocket'], 
+      transports: ["polling", "websocket"], 
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -160,7 +160,6 @@ export const useAuthStore = create((set, get) => ({
       set({ socket: null });
     }
   },
-
 
   reconnectSocket: () => {
     get().disconnectSocket();
