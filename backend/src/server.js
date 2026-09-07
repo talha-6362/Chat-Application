@@ -15,8 +15,20 @@ const PORT = ENV.PORT || 3000;
 // DB Connection
 connectDB();
 
+const allowedOrigins = [
+  ENV.CLIENT_URL,
+  "https://chat-application-r5jz-gray.vercel.app",
+  "http://localhost:5173"
+].filter(Boolean);
+
 app.use(cors({
-  origin: ENV.CLIENT_URL || "http://localhost:5173",
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); 
+    }
+  },
   credentials: true,
 }));
 
@@ -27,17 +39,14 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
-// Root Health-Check Route (for Vercel verification)
 app.get("/", (req, res) => {
   res.send("Backend API is running successfully!");
 });
 
-// Local Machine Support (Socket.io + Express listen)
 if (process.env.NODE_ENV !== "production") {
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
 
-// Vercel Serverless Export
 export default app;
